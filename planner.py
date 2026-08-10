@@ -235,7 +235,61 @@ def calculer_itineraires(reseau: "Reseau", depart_norm, heure_min_depart_hhmm,
     return itineraires
 
 
-def formater_itineraire(reseau: "Reseau", itin):
+def label_arret(reseau: "Reseau", arret_norm):
+    stop = reseau.stops[arret_norm]
+    return f"{stop.commune} — {stop.arret}"
+
+
+def heure_limite_depart(reseau: "Reseau", etape_norm, arrivee_norm):
+    """Dernière heure à laquelle on peut encore partir de etape_norm en
+    espérant atteindre arrivee_norm le jour même (None si aucune heure de
+    la journée ne le permet)."""
+    if etape_norm == arrivee_norm:
+        return None
+    departs = sorted({p.heure_min for p in reseau.passages_par_arret[etape_norm]}, reverse=True)
+    for t in departs:
+        if _rechercher_leg(reseau, etape_norm, arrivee_norm, t, max_resultats=1):
+            return t
+    return None
+
+
+def options_prochaine_etape(reseau: "Reseau", position_norm, heure_min_hhmm, prochain_norm,
+                             arrivee_norm, exclure_pause_nulle=True, max_options=40):
+    """
+    Mode interactif : liste toutes les façons d'atteindre `prochain_norm`
+    (une étape PI, ou l'arrêt final) depuis `position_norm` en partant au
+    plus tôt à `heure_min_hhmm`.
+
+    - Si prochain_norm == arrivee_norm : simple liste d'arrivées possibles,
+      triée par heure d'arrivée croissante (dernier tronçon du voyage).
+    - Sinon : pour chaque arrivée possible à l'étape, calcule la pause
+      maximale disponible avant qu'il ne devienne impossible de rejoindre
+      arrivee_norm le jour même ; écarte les pauses nulles ; trie par
+      pause décroissante (le but demandé : privilégier les plus longues
+      pauses tout en garantissant le retour).
+    """
+    heure_min = _hhmm_to_min(heure_min_hhmm) if isinstance(heure_min_hhmm, str) else heure_min_hhmm
+    legs = _rechercher_leg(reseau, position_norm, prochain_norm, heure_min, max_resultats=max_options)
+
+    options = []
+    if prochain_norm == arrivee_norm:
+        for leg in legs:
+            options.append({"leg": leg, "heure_arrivee": leg[-1].heure_arrivee, "pause_max": None})
+        options.sort(key=lambda o: o["heure_arrivee"])
+        return options
+
+    limite = heure_limite_depart(reseau, prochain_norm, arrivee_norm)
+    for leg in legs:
+        arrivee = leg[-1].heure_arrivee
+        if limite is None or limite <= arrivee:
+            continue  # plus aucun moyen de repartir à temps vers l'arrivée finale
+        pause = limite - arrivee
+        if exclure_pause_nulle and pause <= 0:
+            continue
+        options.append({"leg": leg, "heure_arrivee": arrivee, "pause_max": pause,
+                         "heure_limite_depart": limite})
+    options.sort(key=lambda o: (-o["pause_max"], o["heure_arrivee"]))
+    return options
     lignes = [f"Départ {_min_to_hhmm(itin['heure_depart'])} -> "
               f"Arrivée {_min_to_hhmm(itin['heure_arrivee'])} "
               f"(durée totale {itin['duree_totale']} min)"]
