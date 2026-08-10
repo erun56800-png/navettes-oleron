@@ -4,7 +4,15 @@ def norm(s):
     if s is None: return ""
     s = str(s).strip()
     s2 = unicodedata.normalize('NFKD', s).encode('ascii','ignore').decode('ascii')
+    s2 = s2.replace('-', ' ')
+    s2 = re.sub(r'\s+', ' ', s2)
     return s2.lower().strip()
+
+def cle_arret(commune, arret):
+    """Clé unique d'un arrêt = commune + nom d'arrêt normalisés.
+    Nécessaire car plusieurs arrêts de communes différentes portent le
+    même nom (ex: 'Marché' existe à Saint-Trojan ET à Saint-Pierre)."""
+    return f"{norm(commune)}|{norm(arret)}"
 
 # ---------- 1. Arrets.xlsx ----------
 wb = openpyxl.load_workbook('/mnt/user-data/uploads/Arrêts.xlsx', data_only=True)
@@ -16,16 +24,23 @@ for row in ws.iter_rows(min_row=2, values_only=True):
     arrets.append({
         'commune': commune,
         'arret': arret,
-        'arret_norm': norm(arret),
+        'arret_norm': cle_arret(commune, arret),
         'point_interet': 1 if pi else 0,
         'correspondance': corresp or ""
     })
 
-with open('/home/claude/oleron/data/arrets.csv','w',newline='',encoding='utf-8') as f:
+with open('arrets.csv','w',newline='',encoding='utf-8') as f:
     w = csv.DictWriter(f, fieldnames=['commune','arret','arret_norm','point_interet','correspondance'])
     w.writeheader()
-    w.writerows(arrets)
-print("arrets.csv:", len(arrets), "lignes")
+    vus = set()
+    arrets_dedup = []
+    for a in arrets:
+        if a['arret_norm'] in vus:
+            continue  # doublon dans Arrêts.xlsx (même arrêt saisi deux fois avec une orthographe différente)
+        vus.add(a['arret_norm'])
+        arrets_dedup.append(a)
+    w.writerows(arrets_dedup)
+print("arrets.csv:", len(arrets_dedup), "lignes (", len(arrets) - len(arrets_dedup), "doublons retirés)")
 
 # ---------- 2. Fiches_Horaires.xlsx ----------
 wb2 = openpyxl.load_workbook('/mnt/user-data/uploads/Fiches_Horaires.xlsx', data_only=True)
@@ -89,7 +104,7 @@ while i < n:
                         'heure_ref_depart_ligne': href,
                         'commune': commune,
                         'arret': arret,
-                        'arret_norm': norm(arret),
+                        'arret_norm': cle_arret(commune, arret),
                         'heure_passage': hhmm,
                         'remarque': remarque or ""
                     })
@@ -98,7 +113,7 @@ while i < n:
         continue
     i += 1
 
-with open('/home/claude/oleron/data/horaires_long.csv','w',newline='',encoding='utf-8') as f:
+with open('horaires_long.csv','w',newline='',encoding='utf-8') as f:
     fieldnames = ['ligne_num','couleur','origine','destination','jours_validite','course_num',
                   'heure_ref_depart_ligne','commune','arret','arret_norm','heure_passage','remarque']
     w = csv.DictWriter(f, fieldnames=fieldnames)
