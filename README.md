@@ -30,3 +30,41 @@ différentes.
 
 Vous pouvez ajuster ces règles directement dans `planner.py` si votre lecture
 du terrain diffère (commentaires en tête de fichier).
+
+## Obtenir un .exe Windows (application de bureau)
+
+En plus de la version web (Streamlit Community Cloud), le dépôt contient
+tout le nécessaire pour obtenir un fichier `.exe` autonome, construit
+gratuitement par GitHub (pas d'installation locale nécessaire pour le
+construire) :
+
+- `launcher.py` : démarre le serveur Streamlit et ouvre le navigateur
+  automatiquement sur `http://localhost:8501`.
+- `.github/workflows/build-exe.yml` : demande à GitHub Actions de
+  construire l'exécutable Windows avec PyInstaller à chaque envoi de code,
+  ou à la demande.
+
+### Récupérer le .exe
+
+1. Sur la page du dépôt GitHub, cliquez sur l'onglet **Actions**.
+2. Cliquez sur le workflow **« Construire l'exécutable Windows »**.
+3. Cliquez sur **« Run workflow »** (bouton à droite) puis confirmez.
+   Patientez 3 à 5 minutes pendant que GitHub construit l'exécutable sur
+   une machine Windows dans le cloud.
+4. Une fois le run terminé (coche verte), cliquez dessus, puis en bas de
+   la page téléchargez l'archive **« OleronNavettes-Windows »**.
+5. Décompressez l'archive sur un PC Windows : le fichier
+   `OleronNavettes.exe` s'y trouve, à côté d'un dossier `_internal`
+   (à garder dans le même dossier, ne pas déplacer l'exe seul).
+   Double-clic dessus : l'application s'ouvre dans le navigateur par
+   défaut.
+
+Remarques :
+- L'exécutable est assez volumineux (~150-200 Mo) car il embarque Python
+  et Streamlit ; c'est normal pour ce type d'empaquetage.
+- Windows Defender / SmartScreen peut afficher un avertissement la
+  première fois (exécutable non signé numériquement) : cliquer sur
+  « Informations complémentaires » puis « Exécuter quand même ».
+- Ce `.exe` n'a besoin d'aucune connexion internet pour fonctionner (les
+  données horaires sont incluses dedans) ; il faudra reconstruire un
+  nouvel exe après une mise à jour de `horaires_long.csv`.
