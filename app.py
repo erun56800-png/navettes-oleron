@@ -1,5 +1,9 @@
+import datetime
 import streamlit as st
-from planner import Reseau, options_prochaine_etape, label_arret, _min_to_hhmm, _hhmm_to_min
+from planner import (
+    Reseau, options_prochaine_etape, label_arret, _min_to_hhmm, _hhmm_to_min,
+    est_jours_validite_standard,
+)
 
 st.set_page_config(page_title="Navettes Île d'Oléron — Itinéraire interactif", page_icon="🚌")
 
@@ -33,18 +37,21 @@ with st.form("parametres"):
         idx_dep = st.selectbox("Arrêt de départ", range(len(labels_arrets)), format_func=lambda i: labels_arrets[i])
     with col2:
         idx_arr = st.selectbox("Arrêt d'arrivée finale", range(len(labels_arrets)), format_func=lambda i: labels_arrets[i])
-    heure_min = st.time_input("Heure de départ minimum")
+    heure_min = st.time_input("Heure de départ minimum", value=datetime.time(9, 0))
     lance = st.form_submit_button("Démarrer / recommencer le calcul interactif", type="primary")
 
 if lance:
-    st.session_state.voyage = {
-        "position": norms_arrets[idx_dep],
-        "heure": heure_min.strftime("%H:%M"),
-        "arrivee": norms_arrets[idx_arr],
-        "legs": [],          # liste de Segment-lists (un élément par tronçon confirmé)
-        "termine": False,
-    }
-    st.session_state.options_affichees = None
+    if norms_arrets[idx_dep] == norms_arrets[idx_arr]:
+        st.error("⚠️ L'arrêt de départ et l'arrêt d'arrivée finale doivent être différents.")
+    else:
+        st.session_state.voyage = {
+            "position": norms_arrets[idx_dep],
+            "heure": heure_min.strftime("%H:%M"),
+            "arrivee": norms_arrets[idx_arr],
+            "legs": [],          # liste de Segment-lists (un élément par tronçon confirmé)
+            "termine": False,
+        }
+        st.session_state.options_affichees = None
 
 voyage = st.session_state.voyage
 
@@ -58,6 +65,12 @@ def afficher_leg(leg):
             f"course {seg.course_num}) : {a.arret} ({_min_to_hhmm(seg.heure_depart)}) "
             f"→ {b.arret} ({_min_to_hhmm(seg.heure_arrivee)})"
         )
+        if not est_jours_validite_standard(reseau, seg.jours_validite):
+            st.warning(f"⚠️ Cette navette ne circule pas tous les jours : {seg.jours_validite}. "
+                       "Vérifiez qu'elle circule bien le jour de votre trajet.")
+        remarques = {r for r in (seg.remarque_depart, seg.remarque_arrivee) if r}
+        for remarque in remarques:
+            st.caption(f"ℹ️ {remarque}")
 
 
 # ----------------------------------------------------------------------
