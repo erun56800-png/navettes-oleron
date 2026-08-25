@@ -138,12 +138,20 @@ if voyage:
                 )
                 for i, opt in enumerate(options):
                     leg = opt["leg"]
+                    # Temps d'arrêt sur place, à la position actuelle, avant ce départ
+                    # (permet de choisir un trajet en fonction du temps disponible pour
+                    # visiter l'étape courante, avant d'enchaîner vers la suivante).
+                    attente = leg[0].heure_depart - _hhmm_to_min(voyage["heure"])
+                    depart_txt = f"Départ {_min_to_hhmm(leg[0].heure_depart)}"
+                    if attente > 0:
+                        depart_txt += (f" (après {attente} min sur place "
+                                        f"à {label_arret(reseau, voyage['position'])})")
                     if opt["pause_max"] is not None:
-                        titre = (f"Arrivée {_min_to_hhmm(opt['heure_arrivee'])} — "
+                        titre = (f"{depart_txt} — Arrivée {_min_to_hhmm(opt['heure_arrivee'])} — "
                                  f"pause possible : jusqu'à {opt['pause_max']} min "
                                  f"(départ au plus tard à {_min_to_hhmm(opt['heure_limite_depart'])})")
                     else:
-                        titre = f"Arrivée {_min_to_hhmm(opt['heure_arrivee'])}"
+                        titre = f"{depart_txt} — Arrivée {_min_to_hhmm(opt['heure_arrivee'])}"
                     with st.expander(titre):
                         afficher_leg(leg)
                         if st.button("✅ Choisir ce trajet", key=f"choix_{aff['cible']}_{i}"):
