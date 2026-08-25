@@ -41,17 +41,14 @@ with st.form("parametres"):
     lance = st.form_submit_button("Démarrer / recommencer le calcul interactif", type="primary")
 
 if lance:
-    if norms_arrets[idx_dep] == norms_arrets[idx_arr]:
-        st.error("⚠️ L'arrêt de départ et l'arrêt d'arrivée finale doivent être différents.")
-    else:
-        st.session_state.voyage = {
-            "position": norms_arrets[idx_dep],
-            "heure": heure_min.strftime("%H:%M"),
-            "arrivee": norms_arrets[idx_arr],
-            "legs": [],          # liste de Segment-lists (un élément par tronçon confirmé)
-            "termine": False,
-        }
-        st.session_state.options_affichees = None
+    st.session_state.voyage = {
+        "position": norms_arrets[idx_dep],
+        "heure": heure_min.strftime("%H:%M"),
+        "arrivee": norms_arrets[idx_arr],
+        "legs": [],          # liste de Segment-lists (un élément par tronçon confirmé)
+        "termine": False,
+    }
+    st.session_state.options_affichees = None
 
 voyage = st.session_state.voyage
 
