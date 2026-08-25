@@ -18,6 +18,27 @@ différentes.
 | `requirements.txt` | Bibliothèques Python nécessaires pour faire tourner l'application |
 | `requirements-dev.txt` | + les outils nécessaires pour développer/tester (`pytest`) |
 
+## Données horaires
+
+`arrets.csv` et `horaires_long.csv` sont générés par `extract.py` à partir
+des fiches horaires officielles (fichiers Excel `Arrêts.xlsx` et
+`Fiches_Horaires.xlsx`), pour **une saison/édition donnée** — ces fichiers
+Excel ne sont pas versionnés dans ce dépôt et les CSV eux-mêmes ne portent
+aucune information de saison ou de date de validité. Il faut donc suivre
+"à la main" la fraîcheur des données (par ex. via la date/le message du
+dernier commit qui a touché ces deux CSV) et relancer `extract.py` avec les
+fichiers Excel à jour dès que de nouvelles fiches horaires officielles sont
+publiées.
+
+Concrètement aujourd'hui, toutes les courses du jeu de données ont la même
+valeur de validité (« Du lundi au dimanche et jours fériés ») : le moteur
+ne filtre donc pas les trajets par jour de la semaine. Si une future mise à
+jour introduit des navettes à jours de circulation restreints (ex. « sauf
+le dimanche »), l'application les signalera par un avertissement dans
+l'itinéraire proposé plutôt que de les filtrer elle-même — vérifiez
+toujours l'horaire réel avant de partir, comme le rappelle l'avertissement
+affiché en bas de l'application.
+
 ## Principe de fonctionnement du moteur (`planner.py`)
 
 - Vous pouvez monter dans **n'importe quelle navette** à votre arrêt de
