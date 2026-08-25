@@ -6,6 +6,16 @@ par une ou plusieurs étapes (Points d'Intérêt), avec calcul des temps de
 pause à chaque étape et des correspondances entre navettes de couleurs
 différentes.
 
+Vous indiquez un départ, une heure minimum et une arrivée (par défaut le
+même arrêt que le départ, pour un aller-retour dans la journée), puis vous
+ajoutez éventuellement une ou plusieurs étapes dans l'ordre où vous comptez
+les visiter. L'application affiche alors, sous forme de tableau, **tous**
+les itinéraires complets possibles (durée d'attente avant le départ, heure
+d'arrivée et durée de pause à chaque étape, heure d'arrivée finale), sans
+rien présélectionner — à vous de choisir la ligne qui vous convient. Le
+détail des navettes à prendre pour une ligne donnée du tableau (couleur,
+ligne, correspondances) reste consultable séparément, en dessous.
+
 ## Contenu du dépôt
 
 | Fichier | Rôle |

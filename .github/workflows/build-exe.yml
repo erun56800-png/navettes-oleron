@@ -33,6 +33,7 @@ jobs:
           --add-data "horaires_long.csv;."
           --collect-all streamlit
           --collect-all altair
+          --collect-all pandas
           launcher.py
 
       - name: Publier le résultat (fichier téléchargeable)
