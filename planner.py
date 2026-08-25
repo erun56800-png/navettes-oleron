@@ -198,23 +198,36 @@ def _rechercher_leg(reseau: "Reseau", depart_norm, arrivee_norm, heure_min_depar
         if sig not in vus:
             vus.add(sig)
             uniques.append(chemin)
-    # On écarte un trajet s'il existe un autre trajet strictement plus
-    # simple (moins de correspondances "automatiques" en route) qui arrive
-    # aussi tôt ou plus tôt : cela évite les détours de correspondance
-    # inutiles, sans jamais supprimer deux départs différents d'une même
-    # ligne directe (qui restent tous deux proposés, avec des heures
-    # différentes).
+    # On écarte un trajet s'il existe, parmi ceux déjà retenus, un trajet
+    # strictement plus simple (moins de correspondances "automatiques" en
+    # route) qui part au moins aussi tard ET arrive au moins aussi tôt : ce
+    # trajet plus simple est alors une alternative au moins aussi bonne,
+    # sans qu'il soit besoin de partir plus tôt -- inutile de proposer un
+    # détour de correspondance dans ce cas précis.
+    #
+    # Le départ compte ici volontairement : un trajet plus simple qui part
+    # PLUS TÔT dans la journée n'est PAS une alternative, c'est une
+    # proposition différente pour un autre moment de la journée, qui doit
+    # rester proposée à côté des autres (ex: un bus direct à 7h ne rend pas
+    # inutile un trajet avec correspondance à 16h vers la même destination).
+    # De même, on ne compare jamais deux trajets de même taille entre eux
+    # (deux départs différents d'une même ligne directe, par exemple,
+    # restent tous deux proposés).
     uniques.sort(key=lambda c: (len(c), c[-1].heure_arrivee))
     retenus = []
-    meilleure_arrivee_par_taille = {}
     for chemin in uniques:
         taille = len(chemin)
+        depart = chemin[0].heure_depart
         arrivee = chemin[-1].heure_arrivee
-        meilleure_avant = min((v for k, v in meilleure_arrivee_par_taille.items() if k < taille), default=None)
-        if meilleure_avant is not None and arrivee >= meilleure_avant:
+        domine = any(
+            len(autre) < taille
+            and autre[0].heure_depart >= depart
+            and autre[-1].heure_arrivee <= arrivee
+            for autre in retenus
+        )
+        if domine:
             continue
         retenus.append(chemin)
-        meilleure_arrivee_par_taille[taille] = min(meilleure_arrivee_par_taille.get(taille, arrivee), arrivee)
     retenus.sort(key=lambda c: c[-1].heure_arrivee)
     return retenus
 
