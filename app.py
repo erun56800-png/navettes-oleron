@@ -54,7 +54,17 @@ voyage = st.session_state.voyage
 
 
 def afficher_leg(leg):
-    for seg in leg:
+    for idx, seg in enumerate(leg):
+        if idx > 0:
+            # Attente à une correspondance AUTOMATIQUE (choisie par le moteur en
+            # cours de route, pas par l'utilisateur) : à afficher explicitement,
+            # sans quoi deux options peuvent sembler identiques ("même départ,
+            # même nombre de navettes") alors qu'elles impliquent une attente très
+            # différente à un arrêt de correspondance intermédiaire.
+            attente_corr = seg.heure_depart - leg[idx - 1].heure_arrivee
+            if attente_corr > 0:
+                st.caption(f"⏸️ Correspondance : {attente_corr} min d'attente à "
+                           f"{reseau.stops[seg.arret_depart_norm].arret}")
         a = reseau.stops[seg.arret_depart_norm]
         b = reseau.stops[seg.arret_arrivee_norm]
         st.write(
@@ -146,12 +156,22 @@ if voyage:
                     if attente > 0:
                         depart_txt += (f" (après {attente} min sur place "
                                         f"à {label_arret(reseau, voyage['position'])})")
+                    # Attente cumulée aux correspondances automatiques EN COURS de
+                    # trajet (voir afficher_leg) : sans cette info, deux options
+                    # peuvent afficher le même départ et sembler équivalentes alors
+                    # qu'elles n'impliquent pas du tout la même attente en route.
+                    attente_corr = sum(
+                        leg[j].heure_depart - leg[j - 1].heure_arrivee for j in range(1, len(leg))
+                    )
+                    arrivee_txt = f"Arrivée {_min_to_hhmm(opt['heure_arrivee'])}"
+                    if attente_corr > 0:
+                        arrivee_txt += f" (dont {attente_corr} min d'attente en correspondance)"
                     if opt["pause_max"] is not None:
-                        titre = (f"{depart_txt} — Arrivée {_min_to_hhmm(opt['heure_arrivee'])} — "
+                        titre = (f"{depart_txt} — {arrivee_txt} — "
                                  f"pause possible : jusqu'à {opt['pause_max']} min "
                                  f"(départ au plus tard à {_min_to_hhmm(opt['heure_limite_depart'])})")
                     else:
-                        titre = f"{depart_txt} — Arrivée {_min_to_hhmm(opt['heure_arrivee'])}"
+                        titre = f"{depart_txt} — {arrivee_txt}"
                     with st.expander(titre):
                         afficher_leg(leg)
                         if st.button("✅ Choisir ce trajet", key=f"choix_{aff['cible']}_{i}"):
