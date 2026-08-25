@@ -151,14 +151,35 @@ def _couleurs_transfert_possibles(reseau: "Reseau", arret_norm: str, couleur_cou
     return set(stop.correspondance) | {couleur_courante}
 
 
+
+# Budget d'exploration BRUT de la recherche interne (avant nettoyage /
+# troncature), volontairement distinct et bien plus généreux que
+# `max_resultats` (le nombre de résultats renvoyés à l'appelant). Sans ça,
+# la DFS explore en profondeur TOUTES les combinaisons de correspondances
+# du premier départ trouvé avant même d'essayer les départs suivants ; si
+# ce premier départ, à lui seul, génère plus de `max_resultats` chemins
+# bruts (fréquent dès qu'un arrêt de correspondance autorise plusieurs
+# couleurs sur plusieurs sauts), la recherche s'arrête là et les départs
+# plus tardifs de la journée ne sont jamais atteints, même s'ils sont
+# parfaitement valides. Cette valeur a été choisie après vérification sur
+# les vraies données (arrets.csv/horaires_long.csv) : elle suffit à
+# trouver TOUS les départs distincts de la journée sur le cas le plus
+# chargé du réseau, en un temps négligeable (<0.1 s).
+_MAX_RESULTATS_BRUTS = 5000
+
+
 def _rechercher_leg(reseau: "Reseau", depart_norm, arrivee_norm, heure_min_depart,
                      max_transferts=3, max_resultats=50):
     """DFS bornée : renvoie une liste de trajets (liste de Segment) reliant
-    depart_norm à arrivee_norm, partant au plus tôt à heure_min_depart."""
+    depart_norm à arrivee_norm, partant au plus tôt à heure_min_depart.
+
+    `max_resultats` borne le nombre de trajets DISTINCTS renvoyés (après
+    déduplication et élimination des détours inutiles), pas la recherche
+    brute elle-même -- voir _MAX_RESULTATS_BRUTS ci-dessus."""
     resultats = []
 
     def dfs(arret_norm, heure_min, chemin, nb_transferts, couleur_prec, courses_utilisees):
-        if len(resultats) >= max_resultats:
+        if len(resultats) >= _MAX_RESULTATS_BRUTS:
             return
         candidats = [p for p in reseau.passages_par_arret[arret_norm] if p.heure_min >= heure_min]
         if chemin:
@@ -182,7 +203,7 @@ def _rechercher_leg(reseau: "Reseau", depart_norm, arrivee_norm, heure_min_depar
                 nouveau_chemin = chemin + [seg]
                 if q.arret_norm == arrivee_norm:
                     resultats.append(nouveau_chemin)
-                    if len(resultats) >= max_resultats:
+                    if len(resultats) >= _MAX_RESULTATS_BRUTS:
                         return
                 if nb_transferts < max_transferts and q.arret_norm != arrivee_norm:
                     couleurs_ok2 = _couleurs_transfert_possibles(reseau, q.arret_norm, p.couleur)
@@ -229,7 +250,7 @@ def _rechercher_leg(reseau: "Reseau", depart_norm, arrivee_norm, heure_min_depar
             continue
         retenus.append(chemin)
     retenus.sort(key=lambda c: c[-1].heure_arrivee)
-    return retenus
+    return retenus[:max_resultats]
 
 
 def calculer_itineraires(reseau: "Reseau", depart_norm, heure_min_depart_hhmm,
