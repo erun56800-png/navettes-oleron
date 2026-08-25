@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# PyInstaller (build du .exe, voir .github/workflows/build-exe.yml)
+build/
+dist/
+*.spec
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Éditeurs / OS
+.vscode/
+.idea/
+.DS_Store

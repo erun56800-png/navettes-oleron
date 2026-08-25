@@ -35,7 +35,7 @@ args = parser.parse_args()
 
 # ---------- 1. Arrets.xlsx ----------
 wb = openpyxl.load_workbook(args.arrets_xlsx, data_only=True)
-ws = wb['Feuil1']
+ws = wb.active  # première feuille du classeur, quel que soit son nom
 arrets = []
 for row in ws.iter_rows(min_row=2, values_only=True):
     commune, arret, pi, corresp = row[0], row[1], row[2], row[3]
@@ -63,7 +63,7 @@ print("arrets.csv:", len(arrets_dedup), "lignes (", len(arrets) - len(arrets_ded
 
 # ---------- 2. Fiches_Horaires.xlsx ----------
 wb2 = openpyxl.load_workbook(args.horaires_xlsx, data_only=True)
-ws2 = wb2['Feuil1']
+ws2 = wb2.active  # première feuille du classeur, quel que soit son nom
 rows = list(ws2.iter_rows(values_only=True))
 
 block_re = re.compile(r'^(\d+)\s+Navette\s+(\S+)\s+—\s+(.+?)\s*>\s*(.+)$')
