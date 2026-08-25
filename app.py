@@ -158,6 +158,14 @@ else:
     if not itineraires:
         st.error("Aucun itinéraire ne permet de rejoindre l'arrivée le jour même avec ces paramètres.")
     else:
+        # L'objectif d'un aller-retour avec étapes est de les visiter : on
+        # met donc en avant les itinéraires qui laissent le plus de temps
+        # total aux étapes (somme des pauses), avant l'heure d'arrivée qui
+        # ne sert plus qu'à départager les égalités. Sans étape (trajet
+        # direct), pauses == [] pour tous les itinéraires : ce tri retombe
+        # alors naturellement sur un simple tri par heure d'arrivée.
+        itineraires = sorted(itineraires, key=lambda it: (-sum(it["pauses"]), it["heure_arrivee"]))
+
         rows = []
         for itin in itineraires:
             row = {
@@ -181,11 +189,12 @@ else:
         df.index.name = "N°"
 
         st.write(f"**{len(itineraires)} itinéraire(s) complet(s)** trouvé(s), "
-                 "triés par heure d'arrivée croissante :")
+                 + ("triés par durée totale de pause aux étapes décroissante :" if etapes_labels
+                    else "triés par heure d'arrivée croissante :"))
         if len(itineraires) >= MAX_ITINERAIRES:
-            st.caption(f"⚠️ Résultat limité aux {MAX_ITINERAIRES} premiers itinéraires "
-                       "(triés par heure d'arrivée) ; affinez votre recherche (ajoutez une "
-                       "étape, avancez l'heure minimum) si besoin.")
+            st.caption(f"⚠️ Résultat limité aux {MAX_ITINERAIRES} premiers itinéraires trouvés "
+                       "(cette limite s'applique avant le tri ci-dessus) ; affinez votre "
+                       "recherche (ajoutez une étape, avancez l'heure minimum) si besoin.")
         hauteur_tableau = min(38 + 35 * len(df), 600)
         st.dataframe(df, use_container_width=True, height=hauteur_tableau)
         if etapes_labels:
