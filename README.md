@@ -14,7 +14,30 @@ différentes.
 | `arrets.csv` / `horaires_long.csv` | Données nettoyées, prêtes à l'emploi |
 | `planner.py` | Le moteur de calcul d'itinéraires (indépendant de l'interface) |
 | `app.py` | L'interface web (Streamlit) |
-| `requirements.txt` | Liste des bibliothèques Python nécessaires |
+| `tests/` | Tests unitaires du moteur (`pytest`), sur un jeu de données synthétique |
+| `requirements.txt` | Bibliothèques Python nécessaires pour faire tourner l'application |
+| `requirements-dev.txt` | + les outils nécessaires pour développer/tester (`pytest`) |
+
+## Données horaires
+
+`arrets.csv` et `horaires_long.csv` sont générés par `extract.py` à partir
+des fiches horaires officielles (fichiers Excel `Arrêts.xlsx` et
+`Fiches_Horaires.xlsx`), pour **une saison/édition donnée** — ces fichiers
+Excel ne sont pas versionnés dans ce dépôt et les CSV eux-mêmes ne portent
+aucune information de saison ou de date de validité. Il faut donc suivre
+"à la main" la fraîcheur des données (par ex. via la date/le message du
+dernier commit qui a touché ces deux CSV) et relancer `extract.py` avec les
+fichiers Excel à jour dès que de nouvelles fiches horaires officielles sont
+publiées.
+
+Concrètement aujourd'hui, toutes les courses du jeu de données ont la même
+valeur de validité (« Du lundi au dimanche et jours fériés ») : le moteur
+ne filtre donc pas les trajets par jour de la semaine. Si une future mise à
+jour introduit des navettes à jours de circulation restreints (ex. « sauf
+le dimanche »), l'application les signalera par un avertissement dans
+l'itinéraire proposé plutôt que de les filtrer elle-même — vérifiez
+toujours l'horaire réel avant de partir, comme le rappelle l'avertissement
+affiché en bas de l'application.
 
 ## Principe de fonctionnement du moteur (`planner.py`)
 
@@ -30,6 +53,21 @@ différentes.
 
 Vous pouvez ajuster ces règles directement dans `planner.py` si votre lecture
 du terrain diffère (commentaires en tête de fichier).
+
+## Tests
+
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
+Les tests (`tests/test_planner.py`) utilisent un petit réseau de navettes
+synthétique généré à la volée, indépendant des vraies données d'Oléron, pour
+vérifier précisément les règles ci-dessus (correspondance automatique
+uniquement aux arrêts marqués, pause maximale, absence de solution le jour
+même, etc.). Ils ne dépendent donc pas du contenu de `arrets.csv` /
+`horaires_long.csv` et continuent de fonctionner même quand les horaires
+officiels changent.
 
 ## Obtenir un .exe Windows (application de bureau)
 
@@ -68,3 +106,11 @@ Remarques :
 - Ce `.exe` n'a besoin d'aucune connexion internet pour fonctionner (les
   données horaires sont incluses dedans) ; il faudra reconstruire un
   nouvel exe après une mise à jour de `horaires_long.csv`.
+
+## Licence
+
+Ce projet est distribué sous licence [GNU AGPL v3.0](LICENSE). En résumé :
+vous pouvez librement utiliser, modifier et redistribuer ce code, y compris
+à des fins commerciales, à condition que toute version modifiée — y compris
+si elle n'est mise à disposition que via un service en ligne — reste
+disponible sous la même licence avec son code source complet.

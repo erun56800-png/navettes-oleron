@@ -52,6 +52,7 @@ class Passage:
     position: int
     heure_min: int
     remarque: str
+    jours_validite: str
 
 
 @dataclass
@@ -63,6 +64,9 @@ class Segment:
     heure_depart: int
     arret_arrivee_norm: str
     heure_arrivee: int
+    jours_validite: str = ""
+    remarque_depart: str = ""
+    remarque_arrivee: str = ""
 
 
 class Reseau:
@@ -70,6 +74,7 @@ class Reseau:
         self.stops = {}
         self.courses = defaultdict(list)             # (ligne_num,course_num) -> [Passage]
         self.passages_par_arret = defaultdict(list)   # arret_norm -> [Passage]
+        self.jours_validite_defaut = None             # valeur la plus courante, voir _load
         self._load(data_dir)
 
     def _load(self, data_dir):
@@ -81,6 +86,7 @@ class Reseau:
                     point_interet=(row["point_interet"] == "1"),
                     correspondance=corr,
                 )
+        compte_jours_validite = defaultdict(int)
         with open(f"{data_dir}/horaires_long.csv", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 key = (int(row["ligne_num"]), int(row["course_num"]))
@@ -90,13 +96,25 @@ class Reseau:
                     arret=row["arret"], position=len(self.courses[key]),
                     heure_min=_hhmm_to_min(row["heure_passage"]),
                     remarque=row["remarque"],
+                    jours_validite=row["jours_validite"],
                 )
                 self.courses[key].append(p)
                 self.passages_par_arret[row["arret_norm"]].append(p)
                 if row["arret_norm"] not in self.stops:
                     self.stops[row["arret_norm"]] = Stop(row["commune"], row["arret"], False, [])
+                if p.jours_validite:
+                    compte_jours_validite[p.jours_validite] += 1
         for lst in self.passages_par_arret.values():
             lst.sort(key=lambda p: p.heure_min)
+        # Valeur de jours_validite la plus répandue dans les données : sert de
+        # référence pour repérer, à l'affichage, les navettes dont les jours
+        # de circulation diffèrent de la norme (ex: service restreint) — voir
+        # est_jours_validite_standard() ci-dessous. Le moteur ne filtre PAS
+        # les trajets par jour (les fiches horaires actuelles ne couvrent
+        # qu'un seul jour type) : ceci ne fait qu'éviter que des horaires à
+        # validité particulière soient proposés sans avertissement.
+        if compte_jours_validite:
+            self.jours_validite_defaut = max(compte_jours_validite, key=compte_jours_validite.get)
 
     def liste_arrets(self):
         return sorted(self.stops.items(), key=lambda kv: (kv[1].commune, kv[1].arret))
@@ -104,6 +122,16 @@ class Reseau:
     def liste_points_interet(self):
         return sorted([(n, s) for n, s in self.stops.items() if s.point_interet],
                        key=lambda kv: (kv[1].commune, kv[1].arret))
+
+
+def est_jours_validite_standard(reseau: "Reseau", jours_validite: str) -> bool:
+    """True si `jours_validite` correspond aux jours de circulation les plus
+    courants du réseau (ou si on ne dispose d'aucune référence). Permet à
+    l'interface de signaler les navettes à validité particulière plutôt que
+    de les proposer sans distinction (voir Reseau.jours_validite_defaut)."""
+    if not jours_validite or reseau.jours_validite_defaut is None:
+        return True
+    return jours_validite == reseau.jours_validite_defaut
 
 
 def _couleurs_transfert_possibles(reseau: "Reseau", arret_norm: str, couleur_courante: str):
@@ -148,7 +176,9 @@ def _rechercher_leg(reseau: "Reseau", depart_norm, arrivee_norm, heure_min_depar
                 if q.heure_min < p.heure_min:
                     continue
                 seg = Segment(p.ligne_num, p.couleur, p.course_num,
-                              arret_norm, p.heure_min, q.arret_norm, q.heure_min)
+                              arret_norm, p.heure_min, q.arret_norm, q.heure_min,
+                              jours_validite=p.jours_validite,
+                              remarque_depart=p.remarque, remarque_arrivee=q.remarque)
                 nouveau_chemin = chemin + [seg]
                 if q.arret_norm == arrivee_norm:
                     resultats.append(nouveau_chemin)
@@ -290,6 +320,11 @@ def options_prochaine_etape(reseau: "Reseau", position_norm, heure_min_hhmm, pro
                          "heure_limite_depart": limite})
     options.sort(key=lambda o: (-o["pause_max"], o["heure_arrivee"]))
     return options
+
+
+def formater_itineraire(reseau: "Reseau", itin):
+    """Représentation texte lisible d'un itinéraire complet (tel que renvoyé
+    par calculer_itineraires), utile pour l'export, le log ou les tests."""
     lignes = [f"Départ {_min_to_hhmm(itin['heure_depart'])} -> "
               f"Arrivée {_min_to_hhmm(itin['heure_arrivee'])} "
               f"(durée totale {itin['duree_totale']} min)"]

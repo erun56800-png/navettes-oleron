@@ -1,3 +1,15 @@
+"""
+Transforme les fichiers Excel officiels (Arrêts.xlsx, Fiches_Horaires.xlsx)
+en arrets.csv / horaires_long.csv, prêts à l'emploi pour planner.py.
+
+Usage :
+    python extract.py [Arrêts.xlsx] [Fiches_Horaires.xlsx]
+
+Par défaut, les deux fichiers Excel sont cherchés dans le dossier courant
+sous ces noms ; passez des chemins en arguments pour utiliser d'autres
+emplacements ou d'autres noms de fichiers.
+"""
+import argparse
 import openpyxl, re, csv, unicodedata
 
 def norm(s):
@@ -14,9 +26,16 @@ def cle_arret(commune, arret):
     même nom (ex: 'Marché' existe à Saint-Trojan ET à Saint-Pierre)."""
     return f"{norm(commune)}|{norm(arret)}"
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("arrets_xlsx", nargs="?", default="Arrêts.xlsx",
+                     help="Chemin du fichier Arrêts.xlsx (défaut : ./Arrêts.xlsx)")
+parser.add_argument("horaires_xlsx", nargs="?", default="Fiches_Horaires.xlsx",
+                     help="Chemin du fichier Fiches_Horaires.xlsx (défaut : ./Fiches_Horaires.xlsx)")
+args = parser.parse_args()
+
 # ---------- 1. Arrets.xlsx ----------
-wb = openpyxl.load_workbook('/mnt/user-data/uploads/Arrêts.xlsx', data_only=True)
-ws = wb['Feuil1']
+wb = openpyxl.load_workbook(args.arrets_xlsx, data_only=True)
+ws = wb.active  # première feuille du classeur, quel que soit son nom
 arrets = []
 for row in ws.iter_rows(min_row=2, values_only=True):
     commune, arret, pi, corresp = row[0], row[1], row[2], row[3]
@@ -43,8 +62,8 @@ with open('arrets.csv','w',newline='',encoding='utf-8') as f:
 print("arrets.csv:", len(arrets_dedup), "lignes (", len(arrets) - len(arrets_dedup), "doublons retirés)")
 
 # ---------- 2. Fiches_Horaires.xlsx ----------
-wb2 = openpyxl.load_workbook('/mnt/user-data/uploads/Fiches_Horaires.xlsx', data_only=True)
-ws2 = wb2['Feuil1']
+wb2 = openpyxl.load_workbook(args.horaires_xlsx, data_only=True)
+ws2 = wb2.active  # première feuille du classeur, quel que soit son nom
 rows = list(ws2.iter_rows(values_only=True))
 
 block_re = re.compile(r'^(\d+)\s+Navette\s+(\S+)\s+—\s+(.+?)\s*>\s*(.+)$')
