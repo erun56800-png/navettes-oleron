@@ -185,6 +185,60 @@ def test_pas_de_correspondance_automatique_a_un_arret_non_marque(reseau):
     assert legs == []
 
 
+def test_trajet_tardif_avec_correspondance_pas_ecarte_par_un_direct_matinal(tmp_path):
+    """Un trajet direct très tôt le matin ne doit PAS faire disparaître un
+    trajet avec correspondance beaucoup plus tard dans la journée vers la
+    même destination : ce sont deux propositions différentes pour deux
+    moments de la journée, pas des alternatives l'une de l'autre (bug
+    précédent : le filtrage comparait l'heure d'arrivée d'un trajet
+    complexe à la MEILLEURE heure d'arrivée jamais vue pour un trajet plus
+    simple, sans tenir compte de l'heure de départ)."""
+    arrets = [
+        _arret("X", "Depart", "depart"),
+        _arret("X", "Correspondance1", "correspondance1", correspondance="verte"),
+        _arret("X", "Destination", "destination"),
+    ]
+    passages = [
+        _passage(1, "bleue", 1, "depart", "07:00"),
+        _passage(1, "bleue", 1, "destination", "07:10"),
+        _passage(2, "bleue", 2, "depart", "16:00"),
+        _passage(2, "bleue", 2, "correspondance1", "16:10"),
+        _passage(3, "verte", 1, "correspondance1", "16:15"),
+        _passage(3, "verte", 1, "destination", "16:30"),
+    ]
+    _ecrire_reseau(tmp_path, arrets, passages)
+    r = Reseau(str(tmp_path))
+    legs = _rechercher_leg(r, "depart", "destination", _hhmm_to_min("06:00"), max_resultats=50)
+    heures_arrivee = sorted(leg[-1].heure_arrivee for leg in legs)
+    assert heures_arrivee == [_hhmm_to_min("07:10"), _hhmm_to_min("16:30")]
+
+
+def test_detour_inutile_a_la_meme_fenetre_horaire_reste_ecarte(tmp_path):
+    """En revanche, un détour par correspondance qui part à la même heure
+    qu'un trajet direct mais arrive plus tard doit toujours être écarté :
+    le trajet direct est alors une alternative strictement au moins aussi
+    bonne, sans qu'il soit besoin de partir plus tôt."""
+    arrets = [
+        _arret("X", "Depart", "depart"),
+        _arret("X", "Correspondance1", "correspondance1", correspondance="verte"),
+        _arret("X", "Destination", "destination"),
+    ]
+    passages = [
+        _passage(1, "bleue", 1, "depart", "08:00"),
+        _passage(1, "bleue", 1, "destination", "08:10"),
+        _passage(2, "bleue", 2, "depart", "08:00"),
+        _passage(2, "bleue", 2, "correspondance1", "08:12"),
+        _passage(3, "verte", 1, "correspondance1", "08:15"),
+        _passage(3, "verte", 1, "destination", "08:30"),
+    ]
+    _ecrire_reseau(tmp_path, arrets, passages)
+    r = Reseau(str(tmp_path))
+    legs = _rechercher_leg(r, "depart", "destination", _hhmm_to_min("06:00"), max_resultats=50)
+    assert len(legs) == 1
+    assert [seg.couleur for seg in legs[0]] == ["bleue"]
+    assert legs[0][-1].heure_arrivee == _hhmm_to_min("08:10")
+
+
 def test_pi_seul_ne_suffit_pas_a_activer_la_correspondance_automatique(reseau):
     """Être un Point d'Intérêt ne suffit pas : sans la colonne
     Correspondance renseignée, 'pi' ne permet pas non plus de changement
