@@ -9,8 +9,16 @@ from planner import (
 st.set_page_config(page_title="Navettes Île d'Oléron — Itinéraire interactif", page_icon="🚌",
                     layout="wide")
 
-MAX_PAR_SEGMENT = 30
-MAX_ITINERAIRES = 150
+# Valeurs vérifiées sur les vraies données (arrets.csv/horaires_long.csv) :
+# le trajet aller-retour le plus chargé du réseau (étapes à forte
+# correspondance) produit jusqu'à ~56 options pour un seul tronçon et
+# jusqu'à ~1500 itinéraires complets pour 2-3 étapes, en moins de 1,5 s.
+# Ces plafonds gardent une marge confortable sans jamais tronquer
+# silencieusement une journée normale ; l'avertissement plus bas reste le
+# filet de sécurité pour un cas extrême (beaucoup d'étapes très chargées
+# choisies en même temps).
+MAX_PAR_SEGMENT = 200
+MAX_ITINERAIRES = 3000
 
 
 @st.cache_resource

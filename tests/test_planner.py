@@ -239,6 +239,56 @@ def test_detour_inutile_a_la_meme_fenetre_horaire_reste_ecarte(tmp_path):
     assert legs[0][-1].heure_arrivee == _hhmm_to_min("08:10")
 
 
+def test_un_depart_tres_ramifie_ne_masque_pas_un_depart_ulterieur_meilleur(tmp_path):
+    """Le premier départ trouvé par la recherche (08:00) se ramifie en 5
+    correspondances possibles (couleurs c1 à c5), toutes arrivant après
+    09:00. Un second départ, plus tard (08:30), permet lui d'arriver dès
+    08:50 via une correspondance différente (c6) -- objectivement la
+    meilleure option.
+
+    Bug précédent : le budget de résultats passé par l'appelant
+    (`max_resultats`) bornait directement la recherche brute en profondeur
+    (DFS). Comme le premier départ, à lui seul, produisait déjà 5 chemins
+    bruts, la recherche s'arrêtait après avoir exploré uniquement SA
+    ramification, sans jamais essayer le second départ -- alors même que
+    ce dernier menait à une meilleure arrivée. Avec max_resultats=3, seuls
+    les 3 premiers chemins du départ ramifié (arrivées 09:00/09:05/09:10)
+    étaient renvoyés, jamais celui à 08:50.
+    """
+    arrets = [
+        _arret("X", "Depart", "depart"),
+        _arret("X", "Correspondance1", "correspondance1", correspondance="c1 c2 c3 c4 c5 c6"),
+        _arret("X", "Arrivee", "arrivee"),
+    ]
+    passages = [
+        _passage(1, "bleue", 1, "depart", "08:00"),
+        _passage(1, "bleue", 1, "correspondance1", "08:10"),
+        _passage(2, "c1", 1, "correspondance1", "08:12"),
+        _passage(2, "c1", 1, "arrivee", "09:00"),
+        _passage(3, "c2", 1, "correspondance1", "08:12"),
+        _passage(3, "c2", 1, "arrivee", "09:05"),
+        _passage(4, "c3", 1, "correspondance1", "08:12"),
+        _passage(4, "c3", 1, "arrivee", "09:10"),
+        _passage(5, "c4", 1, "correspondance1", "08:12"),
+        _passage(5, "c4", 1, "arrivee", "09:15"),
+        _passage(6, "c5", 1, "correspondance1", "08:12"),
+        _passage(6, "c5", 1, "arrivee", "09:20"),
+        _passage(7, "bleue", 2, "depart", "08:30"),
+        _passage(7, "bleue", 2, "correspondance1", "08:40"),
+        _passage(8, "c6", 1, "correspondance1", "08:42"),
+        _passage(8, "c6", 1, "arrivee", "08:50"),
+    ]
+    _ecrire_reseau(tmp_path, arrets, passages)
+    r = Reseau(str(tmp_path))
+    legs = _rechercher_leg(r, "depart", "arrivee", _hhmm_to_min("06:00"), max_resultats=3)
+    assert len(legs) == 3
+    # La meilleure arrivée (08:50, via le second départ) doit être trouvée
+    # et remonter en tête, pas être masquée par les 5 branches du premier
+    # départ à elle seule.
+    assert legs[0][-1].heure_arrivee == _hhmm_to_min("08:50")
+    assert legs[0][-1].couleur == "c6"
+
+
 def test_pi_seul_ne_suffit_pas_a_activer_la_correspondance_automatique(reseau):
     """Être un Point d'Intérêt ne suffit pas : sans la colonne
     Correspondance renseignée, 'pi' ne permet pas non plus de changement
