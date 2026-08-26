@@ -158,13 +158,28 @@ else:
     if not itineraires:
         st.error("Aucun itinéraire ne permet de rejoindre l'arrivée le jour même avec ces paramètres.")
     else:
+        def duree_leg(leg):
+            """Durée totale d'un tronçon (temps de trajet), correspondance(s)
+            automatique(s) éventuelle(s) en route comprise(s) : c'est du temps
+            passé à se déplacer, pas à visiter."""
+            return leg[-1].heure_arrivee - leg[0].heure_depart
+
+        def duree_trajet_totale(itin):
+            return sum(duree_leg(leg) for leg in itin["legs"])
+
         # L'objectif d'un aller-retour avec étapes est de les visiter : on
         # met donc en avant les itinéraires qui laissent le plus de temps
-        # total aux étapes (somme des pauses), avant l'heure d'arrivée qui
-        # ne sert plus qu'à départager les égalités. Sans étape (trajet
-        # direct), pauses == [] pour tous les itinéraires : ce tri retombe
-        # alors naturellement sur un simple tri par heure d'arrivée.
-        itineraires = sorted(itineraires, key=lambda it: (-sum(it["pauses"]), it["heure_arrivee"]))
+        # total aux étapes (somme des pauses) -- et, à durée de pause égale,
+        # ceux dont le temps total passé EN TRAJET (l'inverse : du temps
+        # "perdu" à se déplacer plutôt qu'à visiter) est le plus court.
+        # L'heure d'arrivée ne sert plus qu'à départager les dernières
+        # égalités. Sans étape (trajet direct), pauses == [] pour tous les
+        # itinéraires : ce tri retombe alors sur trajet le plus court, puis
+        # heure d'arrivée.
+        itineraires = sorted(
+            itineraires,
+            key=lambda it: (-sum(it["pauses"]), duree_trajet_totale(it), it["heure_arrivee"]),
+        )
 
         rows = []
         for itin in itineraires:
@@ -174,9 +189,11 @@ else:
                 "Horaire de départ": _min_to_hhmm(itin["heure_depart"]),
             }
             for i, label in enumerate(etapes_labels):
+                row[f"Durée du trajet (min) — {label}"] = duree_leg(itin["legs"][i])
                 row[f"Horaire d'arrivée — {label}"] = _min_to_hhmm(itin["legs"][i][-1].heure_arrivee)
                 row[f"Durée à l'étape (min) — {label}"] = itin["pauses"][i]
                 row[f"Horaire de départ — {label}"] = _min_to_hhmm(itin["legs"][i + 1][0].heure_depart)
+            row["Durée du trajet retour (min)"] = duree_leg(itin["legs"][-1])
             row["Horaire d'arrivée à l'arrivée"] = _min_to_hhmm(itin["heure_arrivee"])
 
             tous_segments = [seg for leg in itin["legs"] for seg in leg]
@@ -189,8 +206,9 @@ else:
         df.index.name = "N°"
 
         st.write(f"**{len(itineraires)} itinéraire(s) complet(s)** trouvé(s), "
-                 + ("triés par durée totale de pause aux étapes décroissante :" if etapes_labels
-                    else "triés par heure d'arrivée croissante :"))
+                 + ("triés par durée totale de pause aux étapes décroissante, "
+                    "puis par durée totale de trajet croissante :" if etapes_labels
+                    else "triés par durée de trajet croissante :"))
         if len(itineraires) >= MAX_ITINERAIRES:
             st.caption(f"⚠️ Résultat limité aux {MAX_ITINERAIRES} premiers itinéraires trouvés "
                        "(cette limite s'applique avant le tri ci-dessus) ; affinez votre "
